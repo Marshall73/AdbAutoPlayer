@@ -9,7 +9,7 @@ on:
 
 jobs:
   sync-and-build:
-    runs-on: windows-latest  # Changé pour Windows (nécessaire pour build .exe)
+    runs-on: windows-latest
     
     steps:
       # 1. Vérifier le code du fork
@@ -42,36 +42,40 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install pyinstaller
       
-      # 5. Builder l'executable
+      # 5. Builder l'executable avec le script officiel
       - name: Build Windows executable
         run: |
-          pyinstaller --noconfirm --onefile --windowed `
-            --name "AdbAutoPlayer" `
-            --add-data "assets;assets" `
-            --add-data "config;config" `
-            --icon="assets/icon.ico" `
-            main.py
-        continue-on-error: true
+          .\.github\scripts\build_windows.ps1
+        shell: powershell
       
-      # 6. Vérifier que l'exe a été créé
+      # 6. Trouver et vérifier l'exe créé
       - name: Check build output
         run: |
-          if (Test-Path "dist/AdbAutoPlayer.exe") {
-            Write-Host "✅ Build successful!"
-            Get-ChildItem dist
+          Write-Host "Searching for built executable..."
+          $exeFiles = Get-ChildItem -Path . -Recurse -Filter "*.exe" | Where-Object { $_.Directory.Name -eq "dist" -or $_.Directory.Name -eq "build" -or $_.Directory.Name -eq "output" }
+          
+          if ($exeFiles) {
+            Write-Host "✅ Build successful! Found:"
+            $exeFiles | ForEach-Object { Write-Host $_.FullName }
+            
+            # Créer un dossier artifacts s'il n'existe pas
+            New-Item -ItemType Directory -Force -Path "artifacts"
+            
+            # Copier tous les exe trouvés
+            $exeFiles | ForEach-Object { Copy-Item $_.FullName -Destination "artifacts\" }
           } else {
             Write-Host "❌ Build failed - no exe found"
             exit 1
           }
+        shell: powershell
       
       # 7. Upload l'exe comme artifact
       - name: Upload executable
         uses: actions/upload-artifact@v4
         with:
           name: AdbAutoPlayer-Windows-exe
-          path: dist/AdbAutoPlayer.exe
+          path: artifacts/*.exe
           if-no-files-found: error
       
       # 8. (Optionnel) Créer une release automatique sur tag
@@ -79,7 +83,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: dist/AdbAutoPlayer.exe
+          files: artifacts/*.exe
           draft: false
           prerelease: false
         env:

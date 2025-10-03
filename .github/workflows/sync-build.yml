@@ -37,36 +37,74 @@ jobs:
         with:
           python-version: '3.11'
       
-      # 4. Installer UV
+      # 4. Setup Go (requis pour Wails3)
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      
+      # 5. Setup Node (requis pour Wails3)
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      # 6. Installer UV
       - name: Install UV
         run: |
           irm https://astral.sh/uv/install.ps1 | iex
+          echo "$env:USERPROFILE\.local\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
         shell: powershell
       
-      # 5. Installer Python avec UV
+      # 7. Installer Python avec UV
       - name: Install Python with UV
         run: |
           uv python install
         shell: powershell
       
-      # 6. Installer les dépendances avec UV
-      - name: Install dependencies with UV
+      # 8. Installer les dépendances Python
+      - name: Install Python dependencies
         run: |
           cd python
           uv sync --dev
         shell: powershell
       
-      # 7. Builder l'executable avec le script officiel
+      # 9. Installer Wails3
+      - name: Install Wails3
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@latest
+          echo "$env:USERPROFILE\go\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        shell: powershell
+      
+      # 10. Vérifier les installations
+      - name: Verify installations
+        run: |
+          Write-Host "Python version:"
+          python --version
+          Write-Host "`nGo version:"
+          go version
+          Write-Host "`nNode version:"
+          node --version
+          Write-Host "`nWails3 version:"
+          wails3 version
+        shell: powershell
+      
+      # 11. Builder l'executable avec le script officiel
       - name: Build Windows executable
         run: |
           .\.github\scripts\build_windows.ps1
         shell: powershell
       
-      # 8. Trouver et vérifier l'exe créé
+      # 12. Trouver et vérifier l'exe créé
       - name: Check build output
         run: |
           Write-Host "Searching for built executable..."
-          $exeFiles = Get-ChildItem -Path . -Recurse -Filter "*.exe" | Where-Object { $_.Directory.Name -eq "dist" -or $_.Directory.Name -eq "build" -or $_.Directory.Name -eq "output" }
+          $exeFiles = Get-ChildItem -Path . -Recurse -Filter "*.exe" | Where-Object { 
+            $_.Directory.Name -eq "dist" -or 
+            $_.Directory.Name -eq "build" -or 
+            $_.Directory.Name -eq "output" -or
+            $_.Directory.Name -eq "bin"
+          }
           
           if ($exeFiles) {
             Write-Host "✅ Build successful! Found:"
@@ -79,11 +117,13 @@ jobs:
             $exeFiles | ForEach-Object { Copy-Item $_.FullName -Destination "artifacts\" }
           } else {
             Write-Host "❌ Build failed - no exe found"
+            Write-Host "`nSearching all .exe files in the repository:"
+            Get-ChildItem -Path . -Recurse -Filter "*.exe" | ForEach-Object { Write-Host $_.FullName }
             exit 1
           }
         shell: powershell
       
-      # 9. Upload l'exe comme artifact
+      # 13. Upload l'exe comme artifact
       - name: Upload executable
         uses: actions/upload-artifact@v4
         with:
@@ -91,7 +131,7 @@ jobs:
           path: artifacts/*.exe
           if-no-files-found: error
       
-      # 10. (Optionnel) Créer une release automatique sur tag
+      # 14. (Optionnel) Créer une release automatique sur tag
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1

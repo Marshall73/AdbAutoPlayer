@@ -136,14 +136,12 @@ jobs:
           }
         shell: powershell
       
-      # 13. Upload le dossier complet avec binaries
+      # 13. Upload uniquement le ZIP
       - name: Upload complete build
         uses: actions/upload-artifact@v4
         with:
-          name: AdbAutoPlayer-Windows-Complete
-          path: |
-            AdbAutoPlayer/**
-            AdbAutoPlayer-Windows.zip
+          name: AdbAutoPlayer-Windows
+          path: AdbAutoPlayer-Windows.zip
           if-no-files-found: error
       
       # 14. (Optionnel) Créer une release automatique sur tag

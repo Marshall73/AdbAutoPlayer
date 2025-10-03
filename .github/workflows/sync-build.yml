@@ -1,0 +1,56 @@
+name: Sync & Build AdbAutoPlayer
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 * * * *"  # toutes les heures (ou tu adaptes selon ta préférence)
+
+jobs:
+  sync-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Vérifier le code du fork
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # nécessaire pour pouvoir merger tout l’historique
+
+      # 2. Synchroniser avec le repo original
+      - name: Sync with upstream
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/AdbAutoPlayer/AdbAutoPlayer.git
+          git fetch upstream
+          git checkout main
+          git merge upstream/main --no-edit || echo "No changes to merge"
+          git push origin main
+
+      # 3. Installer les dépendances (adapté selon le langage du projet)
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          # exemple, si le projet utilise pip / requirements.txt
+          pip install -r requirements.txt
+
+      # 4. Lancer le build/tests
+      - name: Run tests or build
+        run: |
+          # adapte selon ce que le projet a : tests, build, etc.
+          # par exemple :
+          python -m unittest discover
+          # ou s’il y a une commande build ou un script spécifique
+
+      # 5. (Optionnel) Publier les artefacts de build
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: artifact
+          path: ./build_output  # adapte selon le dossier de sortie

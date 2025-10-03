@@ -95,7 +95,7 @@ jobs:
           .\.github\scripts\build_windows.ps1
         shell: powershell
       
-      # 12. Vérifier la build et préparer l'artifact complet
+      # 12. Vérifier la build
       - name: Check build output
         run: |
           Write-Host "Checking build output..."
@@ -103,7 +103,7 @@ jobs:
           
           if (Test-Path $BuildDir) {
             Write-Host "✅ Build successful! Contents:"
-            Get-ChildItem -Path $BuildDir -Recurse | ForEach-Object { Write-Host $_.FullName }
+            Get-ChildItem -Path $BuildDir -Recurse | Select-Object -First 20 | ForEach-Object { Write-Host $_.FullName }
             
             # Vérifier que l'exe existe
             $exeFile = Join-Path $BuildDir "AdbAutoPlayer.exe"
@@ -117,34 +117,32 @@ jobs:
             # Vérifier que le dossier binaries existe
             $binariesDir = Join-Path $BuildDir "binaries"
             if (Test-Path $binariesDir) {
-              Write-Host "✅ Binaries folder found with contents:"
-              Get-ChildItem -Path $binariesDir | ForEach-Object { Write-Host "  - $($_.Name)" }
+              Write-Host "✅ Binaries folder found"
             } else {
               Write-Host "⚠️ Warning: Binaries folder not found!"
             }
-            
-            # Créer un ZIP pour faciliter le téléchargement
-            Write-Host "`nCreating ZIP archive..."
-            Compress-Archive -Path $BuildDir -DestinationPath "AdbAutoPlayer-Windows.zip" -Force
-            Write-Host "✅ ZIP created: AdbAutoPlayer-Windows.zip"
-            
           } else {
             Write-Host "❌ Build failed - AdbAutoPlayer directory not found"
-            Write-Host "`nSearching for any .exe files:"
-            Get-ChildItem -Path . -Recurse -Filter "*.exe" | ForEach-Object { Write-Host $_.FullName }
             exit 1
           }
         shell: powershell
       
-      # 13. Upload uniquement le ZIP
+      # 13. Upload le dossier (GitHub Actions créera automatiquement un ZIP)
       - name: Upload complete build
         uses: actions/upload-artifact@v4
         with:
           name: AdbAutoPlayer-Windows
-          path: AdbAutoPlayer-Windows.zip
+          path: AdbAutoPlayer/
           if-no-files-found: error
       
-      # 14. (Optionnel) Créer une release automatique sur tag
+      # 14. Créer un ZIP pour les releases
+      - name: Create release ZIP
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          Compress-Archive -Path AdbAutoPlayer -DestinationPath AdbAutoPlayer-Windows.zip -Force
+        shell: powershell
+      
+      # 15. Créer une release automatique sur tag
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
